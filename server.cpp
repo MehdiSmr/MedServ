@@ -1,10 +1,13 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
-#include <cstring>  // for strlen
+#include <cstring>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netinet/in.h>
+#include "user/user.h"
+#include "chat/chat.h"
+#include "message/message.h"
 #define PORT 8989
 
 int main() {
@@ -35,7 +38,6 @@ int main() {
     while (true) {
         addr_size = sizeof(serverStorage);
         newSocket = accept(serverSocket, reinterpret_cast<struct sockaddr*>(&serverStorage), &addr_size);
-        std::cout << "Connection accepted" << std::endl;
         
         if (newSocket < 0) {
             std::cerr << "Accept failed" << std::endl;
@@ -49,22 +51,52 @@ int main() {
         if (bytes_received > 0) {
             buffer[bytes_received] = '\0';  // Null terminate
             std::string request(buffer);
-            std::cout << "Received request: " << request << std::endl;
-            
-            const char* response = "Hello client";
-            std::cout << newSocket << std::endl;
-            ssize_t bytes_sent = send(newSocket, response, strlen(response), 0);
-            std::cout << "HTTP response sent, bytes sent: " << bytes_sent << std::endl;
-            
+            const char* response;
+            ssize_t bytes_sent;
+
+            if (request.find("GET /chats") == 0) 
+            {
+                response = "Hello client";
+                std::cout << newSocket << std::endl;
+                bytes_sent = send(newSocket, response, strlen(response), 0);
+                std::cout << "HTTP response sent, bytes sent: " << bytes_sent << std::endl;
+            } 
+            else if (request.find("GET /chat") == 0) 
+            {
+                response = "Hello client";
+                std::cout << newSocket << std::endl;
+                bytes_sent = send(newSocket, response, strlen(response), 0);
+                std::cout << "HTTP response sent, bytes sent: " << bytes_sent << std::endl;
+            } 
+            else if (request.find("POST /message") == 0) 
+            {
+                response = "Hello client";
+                std::cout << newSocket << std::endl;
+                bytes_sent = send(newSocket, response, strlen(response), 0);
+                std::cout << "HTTP response sent, bytes sent: " << bytes_sent << std::endl;
+            } 
+            else if (request.find("POST /chat") == 0) 
+            {
+                response = "Hello client";
+                std::cout << newSocket << std::endl;
+                bytes_sent = send(newSocket, response, strlen(response), 0);
+                std::cout << "HTTP response sent, bytes sent: " << bytes_sent << std::endl;
+            } 
+            else 
+            {
+                response = "Hello client";
+                std::cout << newSocket << std::endl;
+                bytes_sent = send(newSocket, response, strlen(response), 0);
+                std::cout << "HTTP response sent, bytes sent: " << bytes_sent << std::endl;
+            }
+
         } else {
             std::cerr << "Failed to receive data from client" << std::endl;
         }
         
         close(newSocket);
-        std::cout << "Connection closed" << std::endl;
     }
     
     close(serverSocket);
-    std::cout << "Server shutdown" << std::endl;
     return 0;
 }

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <cstring>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -34,15 +35,20 @@ int main() {
         std::cerr << "Connection Failed" << std::endl;
         return -1;
     }
+
+    char* username = new char[1024];
+    std::cout << "Enter username: ";
+    std::cin >> username;
     
-    status = send(client_fd, "hello", 5, 0);
-    std::cout << "HTTP request sent, bytes sent: " << status << std::endl;
+    status = send(client_fd, username, strlen(username), 0);
+    if (status < 0) {
+        perror("send error");
+        std::cout << "errno: " << errno << std::endl;
+    }
     
     char buffer[1024];
     memset(buffer, 0, sizeof(buffer));
 
-    std::cout << client_fd << std::endl;
-    
     ssize_t bytes_read = recv(client_fd, buffer, 1023, 0);
     
     if (bytes_read > 0) {
