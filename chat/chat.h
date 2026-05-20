@@ -14,5 +14,6 @@ public:
     Chat(const std::string& chatName);
     void addMessage(const std::shared_ptr<Message>& message);
     std::string getChatName() const;
+    std::string toString() const;
     const std::vector<std::shared_ptr<Message> >& getMessages() const;
 };

@@ -14,5 +14,5 @@ public:
     User getSender() const;
     std::string getContent() const;
     std::time_t getTimestamp() const;
-    friend std::ostream& operator<<(std::ostream& os, const Message& message);
+    std::string toString() const;
 };

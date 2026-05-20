@@ -2,14 +2,29 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include <sys/ioctl.h>
 #include <cstring>
+#include <sstream>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
 #define PORT 8989
 
-int getChatRequest(const char* chat, int client_fd)
+const int detectConsoleLines() {
+    winsize w{};
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_row > 0) {
+       return static_cast<int>(w.ws_row/2);
+    }
+   return 50; // fallback
+};
+
+namespace Settings
+{
+    const int g_consolelines(detectConsoleLines());
+}
+
+int getChatRequest(const char* chat, const char* username, int client_fd)
 {
     std::string request = "GET /chat/" + std::string(chat); 
     const int status = send(client_fd, request.c_str(), strlen(request.c_str()), 0);
@@ -22,7 +37,7 @@ int getChatRequest(const char* chat, int client_fd)
 
 int getChatsRequest(const char* username, int client_fd)
 {
-    const char* request = "GET /chat"; 
+    const char* request = "GET /chats"; 
     const int status = send(client_fd, request, strlen(request), 0);
     if (status < 0) {
         std::cerr << "Sending Request error" << std::endl;
@@ -42,15 +57,30 @@ int createChatRequest(const char* chat, const char* username, int client_fd)
     return 0;
 };
 
-int sendMessageRequest(const char* message, const char* username, int client_fd)
+int sendMessageRequest(const char* chat, const char* message, const char* username, int client_fd)
 {
-    std::string request = "GET /message/" + std::string(message); 
+    std::string request = "POST /message/" + std::string(chat) + "{" + std::string(message) + "}"; 
     const int status = send(client_fd, request.c_str(), strlen(request.c_str()), 0);
     if (status < 0) {
         std::cerr << "Sending Request error" << std::endl;
         return -1;
     }
     return 0;
+};
+
+int receiveResponse(int client_fd, char* buffer, size_t buffer_size)
+{
+    ssize_t bytes_read = recv(client_fd, buffer, buffer_size - 1, 0);
+    if (bytes_read < 0) {
+        perror("recv error");
+        std::cerr << "errno: " << errno << std::endl;
+        return -1;
+    } else if (bytes_read == 0) {
+        std::cout << "Connection closed by server" << std::endl;
+        return -1;
+    }
+    buffer[bytes_read] = '\0';  // Null terminate
+    return bytes_read;
 };
 
 
@@ -62,7 +92,7 @@ int main() {
         std::cerr << "Socket creation error" << std::endl;
         return -1;
     }
-    
+  
     // Set socket timeout
     struct timeval timeout;
     timeout.tv_sec = 5;
@@ -84,35 +114,77 @@ int main() {
 
     char username[1024];
     std::vector<std::string> chats;
-    bool session{true};
-    bool inChat{false};
     
+    for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
+    for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
     std::cout << "Enter username: ";
     std::cin >> username;
-
-    while (session) { 
-        char buffer[1024];
-        memset(buffer, 0, sizeof(buffer));
-
-        if (!inChat) {
-            getChatsRequest(username, client_fd); // est ce qu'on attend la prochaine iteration ou est ce j'enchaine tout
-        } else {
-        }
-
-
-        ssize_t bytes_read = recv(client_fd, buffer, 1023, 0);
-        
-        if (bytes_read > 0) {
-            buffer[bytes_read] = '\0';  // Null terminate
-            std::string response(buffer);
-            std::cout << "Received response: '" << response << "'" << std::endl;
-        } else if (bytes_read == 0) {
-            std::cout << "Connection closed by server" << std::endl;
-            session = false;
-        } else {
-            perror("recv error");
-            std::cout << "errno: " << errno << std::endl;
-            session = false;
+    
+    char rbuffer[1024];
+    char wbuffer[1024]; 
+    while (1) {
+        getChatsRequest(username, client_fd);
+        memset(rbuffer, 0, sizeof(rbuffer));
+        chats.clear();
+        ssize_t bytes_read = receiveResponse(client_fd, rbuffer, sizeof(rbuffer));   
+        if (bytes_read != -1) {
+            rbuffer[bytes_read] = '\0';  // Null terminate
+            std::string response(rbuffer);
+            if (response == "\n") {
+                for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
+                std::cout << "No chats available" << std::endl;
+                for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
+            } else {
+                std::stringstream iss(response);
+                std::string chatName;
+                while (std::getline(iss, chatName)) {
+                    if (!chatName.empty()) {
+                        chats.push_back(chatName);
+                    }
+                }
+                for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
+                std::cout << "Available chats:" << std::endl;
+                for (const auto& chat : chats) {
+                    std::cout << "- " << chat << std::endl;
+                }
+                for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
+                std::cout << "Enter chat name to join: ";
+                std::cin >> chatName;
+                getChatRequest(chatName.c_str(), username, client_fd);
+                memset(rbuffer, 0, sizeof(rbuffer)); 
+                bytes_read = receiveResponse(client_fd, rbuffer, sizeof(rbuffer));
+                if (bytes_read != -1) {
+                    rbuffer[bytes_read] = '\0';  // Null terminate
+                    for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
+                    std::cout << rbuffer << std::endl;
+                    for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
+                    std::cout << "Welcome to " << chatName << " chat! If you want to leave the chat, type '/exit'" << std::endl; 
+                    while(1) {
+                        std::cout << "Enter message: ";
+                        memset(wbuffer, 0, sizeof(wbuffer));
+                        std::cin>>std::ws;
+                        std::cin.getline(wbuffer, sizeof(wbuffer));
+                        if (std::string(wbuffer) == "/exit") {
+                            break;
+                        }
+                        sendMessageRequest(chatName.c_str(), wbuffer, username, client_fd);
+                        memset(rbuffer, 0, sizeof(rbuffer));
+                        bytes_read = receiveResponse(client_fd, rbuffer, sizeof(rbuffer));
+                        if (bytes_read != -1) {
+                            rbuffer[bytes_read] = '\0';  // Null terminate
+                            for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
+                            std::cout << rbuffer << std::endl;
+                            for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
+                        } else {
+                            // erreeuurr
+                        }
+                    }
+                } else {
+                   // erreeeur 
+                }
+            } 
+        }else {
+            // erreeuurr
         }
     }
     

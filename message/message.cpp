@@ -11,12 +11,11 @@ std::string Message::getContent() const { return m_content; }
 
 std::time_t Message::getTimestamp() const { return m_timestamp; }
 
-std::ostream& operator<<(std::ostream& os, const Message& message)
+std::string Message::toString() const
 {
-    std::tm* tm_info = std::localtime(&message.m_timestamp);
+    std::tm* tm_info = std::localtime(&m_timestamp);
     char buffer[26];
     std::strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
-    os << "[" << buffer << "] " << message.m_sender.getUsername() << ": " << message.m_content;
-    return os;
+    return "[" + std::string(buffer) + "] " + m_sender.getUsername() + ": " + m_content;
 }
 
