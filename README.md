@@ -1,7 +1,6 @@
 todo:
- make the use of sendall in both client and server and make sure it is well handled
  also chat not found and other errors not handle successfully
-implement the getChatRequest feature
+implement the postChatRequest feature
 
 
 - channel de communication via tcp 

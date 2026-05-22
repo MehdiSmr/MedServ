@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include "utils/utils.h"
 #define PORT 8989
 
 const int detectConsoleLines() {
@@ -26,8 +27,8 @@ namespace Settings
 
 int getChatRequest(const char* chat, const char* username, int client_fd)
 {
-    std::string request = "GET /chat/" + std::string(chat); 
-    const int status = send(client_fd, request.c_str(), strlen(request.c_str()), 0);
+    const std::string request = "GET /chat/" + std::string(chat); 
+    const int status = Utils::sendAll(client_fd, request);
     if (status < 0) {
         std::cerr << "Sending Request error" << std::endl;
         return -1;
@@ -37,8 +38,8 @@ int getChatRequest(const char* chat, const char* username, int client_fd)
 
 int getChatsRequest(const char* username, int client_fd)
 {
-    const char* request = "GET /chats"; 
-    const int status = send(client_fd, request, strlen(request), 0);
+    const std::string request = "GET /chats"; 
+    const int status = Utils::sendAll(client_fd, request);
     if (status < 0) {
         std::cerr << "Sending Request error" << std::endl;
         return -1;
@@ -48,8 +49,8 @@ int getChatsRequest(const char* username, int client_fd)
 
 int createChatRequest(const char* chat, const char* username, int client_fd)
 {
-    std::string request = "POST /chat/" + std::string(chat); 
-    const int status = send(client_fd, request.c_str(), strlen(request.c_str()), 0);
+    const std::string request = "POST /chat/" + std::string(chat); 
+    const int status = Utils::sendAll(client_fd, request);
     if (status < 0) {
         std::cerr << "Sending Request error" << std::endl;
         return -1;
@@ -59,30 +60,14 @@ int createChatRequest(const char* chat, const char* username, int client_fd)
 
 int sendMessageRequest(const char* chat, const char* message, const char* username, int client_fd)
 {
-    std::string request = "POST /message/" + std::string(chat) + "{" + std::string(message) + "}"; 
-    const int status = send(client_fd, request.c_str(), strlen(request.c_str()), 0);
+    const std::string request = "POST /message/" + std::string(chat) + "{" + std::string(message) + "}"; 
+    const int status = Utils::sendAll(client_fd, request);
     if (status < 0) {
         std::cerr << "Sending Request error" << std::endl;
         return -1;
     }
     return 0;
 };
-
-int receiveResponse(int client_fd, char* buffer, size_t buffer_size)
-{
-    ssize_t bytes_read = recv(client_fd, buffer, buffer_size - 1, 0);
-    if (bytes_read < 0) {
-        perror("recv error");
-        std::cerr << "errno: " << errno << std::endl;
-        return -1;
-    } else if (bytes_read == 0) {
-        std::cout << "Connection closed by server" << std::endl;
-        return -1;
-    }
-    buffer[bytes_read] = '\0';  // Null terminate
-    return bytes_read;
-};
-
 
 int main() {
     int status, client_fd;
@@ -126,9 +111,7 @@ int main() {
         getChatsRequest(username, client_fd);
         memset(rbuffer, 0, sizeof(rbuffer));
         chats.clear();
-        ssize_t bytes_read = receiveResponse(client_fd, rbuffer, sizeof(rbuffer));   
-        if (bytes_read != -1) {
-            rbuffer[bytes_read] = '\0';  // Null terminate
+        if (Utils::receiveAll(client_fd, rbuffer, sizeof(rbuffer)) != -1) {
             std::string response(rbuffer);
             if (response == "\n") {
                 for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
@@ -152,9 +135,7 @@ int main() {
                 std::cin >> chatName;
                 getChatRequest(chatName.c_str(), username, client_fd);
                 memset(rbuffer, 0, sizeof(rbuffer)); 
-                bytes_read = receiveResponse(client_fd, rbuffer, sizeof(rbuffer));
-                if (bytes_read != -1) {
-                    rbuffer[bytes_read] = '\0';  // Null terminate
+                if (Utils::receiveAll(client_fd, rbuffer, sizeof(rbuffer)) != -1) {
                     for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
                     std::cout << rbuffer << std::endl;
                     for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
@@ -169,9 +150,7 @@ int main() {
                         }
                         sendMessageRequest(chatName.c_str(), wbuffer, username, client_fd);
                         memset(rbuffer, 0, sizeof(rbuffer));
-                        bytes_read = receiveResponse(client_fd, rbuffer, sizeof(rbuffer));
-                        if (bytes_read != -1) {
-                            rbuffer[bytes_read] = '\0';  // Null terminate
+                        if (Utils::receiveAll(client_fd, rbuffer, sizeof(rbuffer)) != -1) {
                             for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
                             std::cout << rbuffer << std::endl;
                             for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
