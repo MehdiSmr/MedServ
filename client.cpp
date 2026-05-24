@@ -25,7 +25,7 @@ namespace Settings
     const int g_consolelines(detectConsoleLines());
 }
 
-int getChatRequest(const char* chat, const char* username, int client_fd)
+int getChatRequest(const char* chat, int client_fd)
 {
     const std::string request = "GET /chat/" + std::string(chat); 
     const int status = Utils::sendAll(client_fd, request);
@@ -36,7 +36,7 @@ int getChatRequest(const char* chat, const char* username, int client_fd)
     return 0;
 };
 
-int getChatsRequest(const char* username, int client_fd)
+int getChatsRequest(int client_fd)
 {
     const std::string request = "GET /chats"; 
     const int status = Utils::sendAll(client_fd, request);
@@ -47,7 +47,7 @@ int getChatsRequest(const char* username, int client_fd)
     return 0;
 };
 
-int createChatRequest(const char* chat, const char* username, int client_fd)
+int createChatRequest(const char* chat, int client_fd)
 {
     const std::string request = "POST /chat/" + std::string(chat); 
     const int status = Utils::sendAll(client_fd, request);
@@ -60,7 +60,7 @@ int createChatRequest(const char* chat, const char* username, int client_fd)
 
 int sendMessageRequest(const char* chat, const char* message, const char* username, int client_fd)
 {
-    const std::string request = "POST /message/" + std::string(chat) + "{" + std::string(message) + "}"; 
+    const std::string request = "POST /message/" + std::string(chat) + "/username:" + std::string(username) + "{" + std::string(message) + "}"; 
     const int status = Utils::sendAll(client_fd, request);
     if (status < 0) {
         std::cerr << "Sending Request error" << std::endl;
@@ -108,7 +108,7 @@ int main() {
     char rbuffer[1024];
     char wbuffer[1024]; 
     while (1) {
-        getChatsRequest(username, client_fd);
+        getChatsRequest(client_fd);
         memset(rbuffer, 0, sizeof(rbuffer));
         chats.clear();
         if (Utils::receiveAll(client_fd, rbuffer, sizeof(rbuffer)) != -1) {
@@ -116,6 +116,7 @@ int main() {
             if (response == "\n") {
                 for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
                 std::cout << "No chats available" << std::endl;
+                std::cout << "Enter /new <chat_name> to create a new chat" << std::endl; 
                 for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
             } else {
                 std::stringstream iss(response);
@@ -130,10 +131,33 @@ int main() {
                 for (const auto& chat : chats) {
                     std::cout << "- " << chat << std::endl;
                 }
+                std::cout << "Enter chat name to join" << std::endl;
+                std::cout << "Enter /new <chat_name> to create a new chat" << std::endl; 
                 for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
-                std::cout << "Enter chat name to join: ";
-                std::cin >> chatName;
-                getChatRequest(chatName.c_str(), username, client_fd);
+            } 
+            memset(wbuffer, 0, sizeof(wbuffer)); 
+            std::cout << username << "> "; 
+            std::cin>>std::ws;
+            std::cin.getline(wbuffer, sizeof(wbuffer));
+            if (std::string(wbuffer).rfind("/new ", 0) == 0) {
+                std::string newChatName = std::string(wbuffer).substr(5);
+                if (newChatName.empty()) {
+                    std::cout << "Chat name cannot be empty" << std::endl;
+                    continue;
+                }
+                createChatRequest(newChatName.c_str(), client_fd);
+                memset(rbuffer, 0, sizeof(rbuffer)); 
+                if (Utils::receiveAll(client_fd, rbuffer, sizeof(rbuffer)) != -1) {
+                    std::string response(rbuffer);
+                    if (response.find("OK") == std::string::npos) {
+                        std::cout << "Failed to create chat: " << response << std::endl;
+                    }
+                } else {
+                    // erreeuurr
+                }
+            } else if (std::find(chats.begin(), chats.end(), wbuffer) != chats.end()) {
+                std::string chatName(wbuffer); 
+                getChatRequest(chatName.c_str(), client_fd);
                 memset(rbuffer, 0, sizeof(rbuffer)); 
                 if (Utils::receiveAll(client_fd, rbuffer, sizeof(rbuffer)) != -1) {
                     for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
@@ -141,7 +165,7 @@ int main() {
                     for (int i = 0; i < Settings::g_consolelines; ++i) {std::cout << std::endl;}
                     std::cout << "Welcome to " << chatName << " chat! If you want to leave the chat, type '/exit'" << std::endl; 
                     while(1) {
-                        std::cout << "Enter message: ";
+                        std::cout<< username << "> ";
                         memset(wbuffer, 0, sizeof(wbuffer));
                         std::cin>>std::ws;
                         std::cin.getline(wbuffer, sizeof(wbuffer));
@@ -166,7 +190,6 @@ int main() {
             // erreeuurr
         }
     }
-    
     close(client_fd);
     return 0;
 }

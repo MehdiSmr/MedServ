@@ -1,25 +1,9 @@
 # 4-Day C++ Chat Server Learning Roadmap (Beej-based)
 
-- **Reading:** 60–90 min
-- **Coding:** 2.5–3.5 hours
-- **Testing/debugging:** 60–90 min
-- **Notes/reflection:** 20–30 min
-
-4. Implement `sendAll()` to handle partial sends.
-5. Parse requests only when newline-delimited full command is received.
-
-### Outcome
-One client can issue many commands reliably over one persistent TCP connection.
-
----
-
-## Day 3 — Multi-Client Concurrency + Robust Error Handling
-
 ### Read (Beej)
 - Revisit **Ch. 6** patterns
 - **Ch. 8**: Common Questions
 - **Ch. 9** refs: `recv`, `send`, `accept`, `errno`, `setsockopt`, `close`, `shutdown`
-- Optional preview: **Ch. 7.2** `poll()`
 
 ### Build tasks
 1. Implement model: **1 accept thread + 1 worker thread per client**.

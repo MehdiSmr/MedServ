@@ -45,9 +45,6 @@ int main() {
     }
 
     std::vector<std::shared_ptr<Chat>> chats; 
-    chats.push_back(std::make_shared<Chat>("General"));
-    chats.push_back(std::make_shared<Chat>("Random"));
-    chats.push_back(std::make_shared<Chat>("Tech Talk"));
     char buffer[1024];
     while (1) {
         addr_size = sizeof(serverStorage);
@@ -82,19 +79,19 @@ int main() {
                     if (index != chats.end()) {
                         response += (*index)->toString();
                     } else {
-                        response = "Chat not found\n";
+                        response += "Chat not found\n";
                     }
                     bytes_sent = Utils::sendAll(newSocket, response);
                 } 
                 else if (request.find("POST /message") == 0) 
                 {
-                    size_t start = request.find("/message/") + 9; // points to 'G'
-                    size_t open  = request.find("{", start);
+                    size_t start = request.find("/message/") + 9;
+                    size_t open  = request.find("/username:", start);
                     std::string chatName = request.substr(start, open - start);
                     auto index = findChatName(chats, chatName);
+                    std::string userName = request.substr(open + 10, request.find("{") - (open + 10));
                     if (index != chats.end()) {
-                        // For simplicity, we will just create a message with a dummy user and content
-                        User sender("User1");
+                        User sender(userName);
                         size_t start = request.find("{") + 1; // points to 'G'
                         size_t open  = request.find("}");
                         std::string content  = request.substr(start, open - start);
@@ -102,20 +99,24 @@ int main() {
                         (*index)->addMessage(message);
                         response += (*index)->toString();
                         bytes_sent = Utils::sendAll(newSocket, response);
-                        std::cout << "HTTP response sent, bytes sent: " << bytes_sent << std::endl;
                     }
                 } 
                 else if (request.find("POST /chat") == 0) 
                 {
-                    response = "Hello client";
+                    std::string chatName = request.substr(request.find("/chat") + 6);
+                    auto index = findChatName(chats, chatName);
+                    if (index != chats.end()) {
+                        response += "Chat already exists\n";
+                    } else {
+                        chats.push_back(std::make_shared<Chat>(chatName));
+                        response += "OK\n";
+                    }
                     bytes_sent = Utils::sendAll(newSocket, response);
-                    std::cout << "HTTP response sent, bytes sent: " << bytes_sent << std::endl;
                 } 
                 else 
                 {
-                    response = "Invalid request\n";
+                    response += "Invalid request\n";
                     bytes_sent = Utils::sendAll(newSocket, response);
-                    std::cout << "HTTP response sent, bytes sent: " << bytes_sent << std::endl;
                 }
 
             } else {
