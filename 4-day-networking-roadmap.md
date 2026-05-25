@@ -1,29 +1,5 @@
 # 4-Day C++ Chat Server Learning Roadmap (Beej-based)
 
-### Read (Beej)
-- Revisit **Ch. 6** patterns
-- **Ch. 8**: Common Questions
-- **Ch. 9** refs: `recv`, `send`, `accept`, `errno`, `setsockopt`, `close`, `shutdown`
-
-### Build tasks
-1. Implement model: **1 accept thread + 1 worker thread per client**.
-2. Protect shared chat state with `std::mutex`.
-3. Add structured logs: fd, command, bytes in/out, error code.
-4. Test failure scenarios:
-   - client disconnect (`recv == 0`)
-   - timeout (`EAGAIN/EWOULDBLOCK`)
-   - malformed command
-   - two clients sending concurrently
-5. Write a short README:
-   - protocol commands
-   - architecture
-   - known limitations
-
-### Outcome
-You have a small but real multi-client chat server architecture and can debug socket issues systematically.
-
----
-
 ## Day 4 — Event Loop with `poll()` + Architecture Comparison
 
 ### Read (Beej)
@@ -46,6 +22,6 @@ You have a small but real multi-client chat server architecture and can debug so
 You understand when to choose thread-per-connection vs event-driven I/O, and you have a working prototype of both.
 
 ---
-
-## Stretch goal after Day 4
-- Write a tiny load-test script (bash/python) to automate client bursts and collect basic timing stats.
+# add error handling
+# write a readme to explain everything you did and learned and what is the diff between the two implementations
+# write a tiny load-test script (bash/python) to automate client bursts and collect basic timing stats.
