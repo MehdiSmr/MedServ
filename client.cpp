@@ -35,6 +35,7 @@ struct AppState {
     std::string currentChat;
     std::string status;
     bool inChat{false};
+    std::string pendingJoinChat;
 };
 
 struct UiSnapshot {
@@ -91,7 +92,7 @@ static void renderUI(const std::string& username, const UiSnapshot& snap, std::m
             }
         }
         std::cout << "----------------------------------------\n";
-        std::cout << "Commands: /leave, /chats, /help, /quit\n";
+        std::cout << "Commands: /leave, /help, /quit\n";
         std::cout << "(plain text sends message)\n";
     } else {
         if (snap.chats.empty()) {
@@ -103,7 +104,7 @@ static void renderUI(const std::string& username, const UiSnapshot& snap, std::m
             }
         }
         std::cout << "----------------------------------------\n";
-        std::cout << "Commands: /chats, /new <chat>, /join <chat>, /help, /quit\n";
+        std::cout << "Commands: /new <chat>, /join <chat>, /help, /quit\n";
     }
 
     if (!snap.status.empty()) {
@@ -130,6 +131,10 @@ static void applyServerResponse(AppState& state, const std::string& response) {
 
     auto chatsIt = std::find(lines.begin(), lines.end(), "/chats/");
     if (chatsIt != lines.end()) {
+        if (state.inChat) {
+            // Ignore lobby chat-list updates while user is inside a chat
+            return;
+        }
         state.chats.assign(chatsIt + 1, lines.end());
         state.status = state.chats.empty() ? "No chats available" : "Chats updated";
         return;
@@ -141,17 +146,43 @@ static void applyServerResponse(AppState& state, const std::string& response) {
         std::vector<std::string> payload(chatIt + 1, lines.end());
 
         if (payload.size() == 1 && payload[0] == "Chat not found") {
-            state.inChat = false;
-            state.currentChat.clear();
-            state.messages.clear();
-            state.status = "Chat not found";
+            if (!state.pendingJoinChat.empty() && state.pendingJoinChat == chatName) {
+                state.pendingJoinChat.clear();
+                state.inChat = false;
+                state.currentChat.clear();
+                state.messages.clear();
+                state.status = "Chat not found";
+            }
             return;
         }
 
-        state.inChat = true;
-        state.currentChat = chatName;
+        if (!state.inChat) {
+            // In lobby: only open chat if user explicitly requested /join for this chat.
+            if (state.pendingJoinChat.empty() || state.pendingJoinChat != chatName) {
+                return;
+            }
+            state.pendingJoinChat.clear();
+            state.inChat = true;
+            state.currentChat = chatName;
+            state.messages = std::move(payload);
+            state.status = "Opened chat: " + chatName;
+            return;
+        }
+
+        // In chat: ignore updates from other chats unless this is an explicit switch via /join.
+        if (state.currentChat != chatName) {
+            if (!state.pendingJoinChat.empty() && state.pendingJoinChat == chatName) {
+                state.pendingJoinChat.clear();
+                state.currentChat = chatName;
+                state.messages = std::move(payload);
+                state.status = "Opened chat: " + chatName;
+            }
+            return;
+        }
+
+        // Regular update for currently opened chat.
         state.messages = std::move(payload);
-        state.status = "Opened chat: " + chatName;
+        state.status = "Chat updated";
         return;
     }
 
@@ -276,10 +307,13 @@ int main() {
         }
 
         if (input == "/chats") {
-            if (!sendRequest(client_fd, "GET /chats")) {
-                running.store(false);
-                break;
+            UiSnapshot snap;
+            {
+                std::lock_guard<std::mutex> lock(state_mtx);
+                state.status = "'/chats' is disabled. Chat list updates automatically.";
+                snap = makeSnapshot(state);
             }
+            renderUI(username, snap, io_mtx);
             continue;
         }
 
@@ -321,6 +355,12 @@ int main() {
                 continue;
             }
 
+            {
+                std::lock_guard<std::mutex> lock(state_mtx);
+                state.pendingJoinChat = chatName;
+                state.status = "Joining chat: " + chatName;
+            }
+
             if (!sendRequest(client_fd, "GET /chat/" + chatName)) {
                 running.store(false);
                 break;
@@ -335,6 +375,7 @@ int main() {
                 state.inChat = false;
                 state.currentChat.clear();
                 state.messages.clear();
+                state.pendingJoinChat.clear();
                 state.status = "Left chat";
                 snap = makeSnapshot(state);
             }
