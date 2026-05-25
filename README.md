@@ -1,4 +1,4 @@
-# C++ Socket Chat (Learning Project)
+# C++ Socket Chat
 
 ## Video Demo
 https://github.com/user-attachments/assets/ec9fb406-a52c-4f62-b411-20f695d503a0
