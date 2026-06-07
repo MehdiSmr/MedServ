@@ -11,9 +11,9 @@ References used:
 - https://www.learncpp.com/
 
 The project is a simple chat application where users can:
-- connect to a server,
-- create chats,
-- join existing chats,
+- connect to a server.
+- create chats.
+- join existing chats.
 - and exchange messages in real time.
 
 ## Server Architectures
@@ -29,7 +29,7 @@ I implemented two server approaches:
 
 ## Client Architecture
 The client is multithreaded:
-- one thread reads user input,
+- one thread reads user input.
 - one thread listens for server updates.
 
 This allows the client to keep chat state updated in real time while the user is typing.
